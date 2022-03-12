@@ -278,8 +278,8 @@ Jest to struktura opisująca adres o polach:
 | **Nazwa**       | **Typ**  |
 | :-------------- | :------- |
 | Street          | String   |
-| BuildingNumber  | Integer  |
-| ApartmentNumber | Integer? |
+| BuildingNumber  | String   |
+| ApartmentNumber | String? |
 | PostCode        | String   |
 | City            | String   |
 
@@ -533,6 +533,8 @@ wartości:
 
   - Oczekuje na płatność
 
+  - Opłacone
+
   - Do realizacji
 
   - Przygotowane
@@ -554,8 +556,7 @@ powodzeniu płatności, zamówienie jest anulowane i przechodzi do stanu
 powiadomienie do użytkownika, a następnie obiekt jest przenoszony do
 archiwum.
 
-Po udanej płatności zamówienie przechodzi do stanu **Dzisiaj
-niezrealizowane**, w którym oczekuje na relizację przez producenta.
+Po udanej płatności zamówienie przechodzi do stanu **Opłacone**. Zamówienie w tym stanie oczekuje, aż nadejdzie data rozpoczęcia realizacji. Wówczas zmieniany jest stan na **Dzisiaj niezrealizowane**, w którym oczekuje na realizację przez producenta.
 Każdego dnia producent pobiera listę zamówień w tym stanie i je
 realizuje. Po przygotowaniu zmienia ich stan na **Przygotowane**, co
 powoduje wysłanie powiadomienia do dostawcy.
@@ -743,18 +744,15 @@ danych.
 
 ### Proces zamówienia
 
-Klient przy użyciu zapytania GET /client/diet/all pobiera dostępne
-diety. Następnie klient przy użyciu requestu POST /client/order składa
-zamówienie. System w odpowiedzi wysyła mu dane do płatności. Użytkownik
-przy pomocy zewnętrznego oprogramowania dokonuje płatności i przy pomocy
-requestu POST /client/order/payment przesyła informacje o dokonanej
-płatności. System po weryfikacji wysyła odpowiedź wraz z potwierdzeniem
-złożenia zamówienia. W przypadku niepowodzenia płatności użytkownik
-wysyła zapytanie POST /client/order/cancel i system odrzuca zamówienie.
+Klient przy użyciu zapytania GET diet/ pobiera dostępne
+diety. Następnie klient przy użyciu requestu POST client/orders składa
+zamówienie. Użytkownik przy pomocy zewnętrznego oprogramowania dokonuje płatności i przy pomocy
+requestu POST client/{orderId}/pay dokonuje opłacenia zamówienia. 
+System po weryfikacji wysyła odpowiedź wraz z potwierdzeniem złożenia zamówienia. 
 
-Producent przy pomocy zapytania GET /producer/order/all pobiera
+Producent przy pomocy zapytania GET producer/orders pobiera
 wszystkie niezrealizowane zamówienia. Następnie przy użyciu zapytania
-POST /producer/order/ready przekazuje zamówienie do dostarczenia.
+POST producer/{orderId}/complete przekazuje zamówienie do dostarczenia.
 
 ![Diagram komunikacji przedstawiający proces
 zamówienia.](Diagramy%20komunikacji/proces_zamowienia.jpg)
@@ -762,11 +760,8 @@ zamówienia.](Diagramy%20komunikacji/proces_zamowienia.jpg)
 ### Dostarczanie zamówienia
 
 Dostawca pobiera wszystkie zamówienia przy pomocy requestu GET
-/deliverer/order/all. Następnie przetwarza zamówienia i w przypadku
-niepowodzenia dostawy pobiera dane kontaktowe klienta przy pomocy GET
-/deliverer/order/client. Po zakończeniu dostawy przy użyciu requestu
-POST /deliverer/delivery powiadamia system o dostarczeniu zamówienia,
-wówczas moduł bazy wysyła powiadomienie do użytkownika.
+deliverer/orders. Następnie przetwarza zamówienia. Po zakończeniu dostawy przy użyciu requestu
+POST deliverer/orders/{orderID}/deliver powiadamia system o dostarczeniu zamówienia, wówczas moduł bazy wysyła powiadomienie do użytkownika.
 
 ![Diagram komunikacji przedstawiający dostarczanie
 zamówienia.](Diagramy%20komunikacji/dostarczanie_zamowienia.jpg)
@@ -774,23 +769,20 @@ zamówienia.](Diagramy%20komunikacji/dostarczanie_zamowienia.jpg)
 ### Obsługa reklamacji
 
 Użytkownik tworzy w formularzu reklamację, po wstępnej walidacji
-wysyłany jest request POST /client/complaint. Jeżeli request zakończy
+wysyłany jest request POST orders/{orderId}/complain. Jeżeli request zakończy
 się powodzeniem, do bazy danych dodanawana jest nowa reklamacja.
 
 Producent otwierając stronę z reklamacjami pobiera je przy pomocy
-zapytania GET /producer/complaint/all. Producent może odpowiedzień na
-daną reklamacje przy pomocy wiadomości POST /producer/complaint/respond.
+zapytania GET producer/orders/complaints. Producent może odpowiedzień na
+daną reklamacje przy pomocy wiadomości POST producer/orders/{orderId}/answer-complaint.
 Moduł bazy zapisuje odpowiedź producenta na reklamację.
-
-Klient może pobrać informację o odpowiedzi na reklamację przy użyciu
-requestu GET /client/complaint.
 
 ![Diagram komunikacji przedstawiający obsługę
 reklamacji.](Diagramy%20komunikacji/obsluga_reklamacji.png)
 
 ### Zakładanie konta
 
-Klient może założyć konto w systemie używając zapytania POST /client. W
+Klient może założyć konto w systemie używając zapytania POST client/register. W
 zapytaniu podaje wszystkie niezbędne dane. Wstępna weryfikacja danych,
 taka jak sprawdzenie poprawności daty urodzenia, przeprowadzana jest
 przed wysłaniem zapytania. Dodatkowa weryfikacja przeprowadzana jest
@@ -804,7 +796,7 @@ rejestrację.](Diagramy%20komunikacji/rejestracja.png)
 ### Logowanie
 
 Klient może zalogować się w systemie używając zapytania POST
-/client/login. W zapytaniu podaje email oraz hasło. Weryfikacja danych
+client/login. W zapytaniu podaje email oraz hasło. Weryfikacja danych
 przeprowadzana jest przez moduł bazy danych. W przypadku powodzenia
 użytkownik dostaje odpowiedź wraz z kluczem api, który dołączany będzie
 do wszystkich następnych nagłówków co będzie umożliwiało weryfikacje
@@ -813,16 +805,16 @@ uprawnień użytkownika.
 ### Dodawanie diet i posiłków
 
 Producent w celu udostępnienia lub edycji menu, korzysta z zapytań POST
-/producer/meal lub POST /producer/diet. Wstępna weryfikacja danych
+meal/ lub POST diet/. Wstępna weryfikacja danych
 zachodzi w module producenta zaś baza osobno sprawdza poprawność danych
 i zwraca odpowiedź.
 
 ### Pobieranie listy składników
 
 Producent aby wyświetlić listę potrzebnych składników musi pobrać
-wszystkie zamówienia przy pomocy zapytania GET /producer/order/all,
-wszystkie diety przy pomocy zapytania GET /producer/diet/all oraz
-wszystkie posiłki przy użyciu zapytania GET /producer/meal/all.
+wszystkie zamówienia przy pomocy zapytania GET producer/orders,
+wszystkie diety przy pomocy zapytania GET diet/ oraz
+wszystkie posiłki przy użyciu zapytania GET meal/.
 Następnie aplikacja oblicza listę potrzebnych składników na podstawie
 posiłków zawartych w zamówionych dietach.
 
@@ -889,7 +881,7 @@ umożliwiać uwierzytelniania użytkownika.
 Po uruchomieniu aplikacji klient otrzymuje możliwość zalogowania się lub
 założenia konta. Po wybraniu opcji założenia konta. Klient podaje
 wymagane dane: email, imię, nazwisko, hasło adres oraz numer telefonu.
-Po zatwierdzeniu wysyłany jest request POST /client a moduł bazy po
+Po zatwierdzeniu wysyłany jest request POST client/register a moduł bazy po
 weryfikacji danych tworzy nowy rekord w tabeli użytkowników. Serwer
 odpowiada informacją zawierającą potwierdzenie powodzenia procesu.
 
@@ -900,18 +892,17 @@ dane zgadzają się z danymi podanymi przez użytkownika.
 ## Składanie zamówienia
 
 Po uruchomieniu aplikacji klient loguje się na swoje konto. Następnie
-wysyłany jest request GET /client/diet/all, po czym wyświetlana jest
+wysyłany jest request GET diet/, po czym wyświetlana jest
 lista dostępnych diet. Klient może wyświetlić informacje na temat danej
 diety, korzystając z odpowiedniego przycisku obok każdej diety.
 Następnie klient wybiera interesującą go dietę i naciska przycisk "Złóż
-zamówienie", po czym wysyłany jest request POST /client/order z
+zamówienie", po czym wysyłany jest request POST client/orders z
 informacjami dotyczącymi zamówienia. W dalszej części klient
 przekierowywany jest do zewnętrznego serwisu obsługującego płatności. Po
 otrzymaniu informacji o powodzeniu płatności, moduł klienta wysyła
-request POST /client/order/payment, po czym status zamówienia jest
+request POST client/{orderId}/payment, po czym status zamówienia jest
 aktualizowany. W przypadku niepowodzenia płatności lub po upływie
-określonego czasu od złożenia zamówienia (np 60 minut) moduł klienta
-wysyła request POST /client/order/cancel i zamówienie jest anulowane.
+określonego czasu od złożenia zamówienia (np 60 minut), zamówienie jest anulowane.
 
 Weryfikacja działania tego scenariusza odbywa się poprzez sprawdzenie,
 czy do bazy danych został dodany nowy rekord z poprawnymi danymi
@@ -922,11 +913,11 @@ anulowane w przypadku braku płatności.
 ## Przetwarzanie zamówienia
 
 Po uruchomieniu aplikacji producent loguje się na swoje konto. Na
-początku moduł producenta wysyła zapytanie GET /producer/order/all i
+początku moduł producenta wysyła zapytanie GET producer/orders i
 pobiera wszystkie niezrealizowane zamówienia, po czym wyświetla ich
 listę producentowi. Producent realizuje dane zamówienie, po czym klika
 przycisk "Do dostarczenia". W tym momencie wysyłany jest request POST
-/producer/order/ready i zmieniany jest status zamówienia w bazie danych
+producer/{orderId}/complete i zmieniany jest status zamówienia w bazie danych
 na "Do dostarczenia".
 
 Weryfikacja działania tego scenariusza odbywa się poprzez sprawdzenie,
@@ -935,14 +926,13 @@ czy status zamówienia w bazie danych został poprawnie zmieniony.
 ## Dostarczenie zamówienia
 
 Po uruchomieniu aplikacji dostawca loguje się na swoje konto. Następnie
-wysyła request GET /deliverer/order/all aby pobrać zamówienia, które ma
+wysyła request GET deliverer/orders aby pobrać zamówienia, które ma
 dostarczyć danego dnia. Dostawca przy użyciu odpowiedniego przycisku
 rozpoczyna proces dostaw, który polega na przetwarzaniu kolejnych
 zamówień w pętli. Dostawca ma możliwość użycia dwóch przycisków. Jeden
 odpowiada za potwierdzenie powodzenia dostawy a drugi za niepowodzenie
-dostawy. W przypadku problemów z dostawą pobierane są dane kontaktowe
-klienta przy pomocy zapytania GET /deliverer/order/client. Po
-dokończeniu dostawy wysyłany jest request POST /deliverer/delivery,
+dostawy. W przypadku problemów z dostawą wyświetlane są dane kontaktowe
+klienta. Po dokończeniu dostawy wysyłany jest request POST deliverer/{orderID}/deliver,
 który ma na celu zmianę statusu zamówienia w bazie danych. Serwer
 odsyła odpowiedź, która zawiera informację na temat powodzenia
 operacji.
@@ -959,28 +949,20 @@ takie jak numer zamówienia, data oraz powód reklamacji, po czym
 zatwierdza formularz. Moduł klienta przeprowadza wstępną walidację pól
 formularza, taką jak sprawdzenie poprawności wpisanej daty oraz
 wymaganego pola "Powód reklamacji". Po tym wysyłany jest request POST
-/client/complaint i reklamacja jest umieszczana w bazie danych.
+client/orders/{orderId}/complain i reklamacja jest umieszczana w bazie danych.
 
 Weryfikacja działania tego scenariusza odbywa się poprzez sprawdzenie
 czy w bazie danych poprawnie zostaje utworzona reklamacja.
 
-Moduł producenta pobiera co jakiś czas pobiera informacje o reklamacjach
-przy użyciu zapytania GET /producer/complaint/all i powiadamia
-producenta w przypadku pojawienia się nowej. Producent wypełnia
-formularz odpowiedzi, wpisując swoją odpowiedź oraz zaznaczając, czy
-reklamacja jest uznana, czy też nie. Po tym moduł producenta wysyła
-wiadomość POST /producer/complain/respond z treścią odpowiedzi, po czym
-zmieniany jest status reklamacji.
+Producent wypełnia formularz odpowiedzi, wpisując swoją odpowiedź. 
+Po tym moduł producenta wysyła wiadomość POST producer/orders/{orderId}/answer-complaint	
+z treścią odpowiedzi, po czym zmieniany jest status reklamacji.
 
 Weryfikacja działania tego scenariusza odbywa się poprzez sprawdzenie
 czy producent jest powiadamiany o nowych reklamacjach oraz czy
 reklamacja jest poprawnie aktualizowana w bazie danych po odpowiedzi.
 
-Moduł klienta co jakiś czas pobiera informacje o reklamacjach
-użytkownika przy użyciu zapytania GET /client/complain oraz powiadamia
-klienta, jeżeli status którejś z nich się zmienił. Klient może
-wyświetlić odpowiedź producenta, klikając odpowiednią reklamacje na
-liście.
+Klient może wyświetlić odpowiedź producenta, przeglądając dane wcześniejszych zamówień.
 
 Weryfikacja tego scenariusza odbywa się poprzez sprawdzenie czy klient
 jest poprawnie powiadamiany o zmianie statusu reklamacji oraz czy może
@@ -990,7 +972,7 @@ wyświetlić odpowiedź producenta.
 
 Po uruchomieniu aplikacji producent loguje się na swoje konto. Może on
 wybrać opcję dodawania posiłku. Wówczas wypełniając odpowiedni
-formularz. Po zatwierdzeniu wysyłane jest zapytanie POST /producer/meal,
+formularz. Po zatwierdzeniu wysyłane jest zapytanie POST meals/,
 które ma na celu dodanie posiłku do bazy danych. Moduł serwera po
 pozytywnej weryfikacji, zapisuje posiłek oraz odsyła odpowiedź do
 producenta.
@@ -1000,10 +982,10 @@ do bazy danych został dodany nowy rekord dotyczący posiłku wraz z danymi
 podanymi przez producenta.
 
 Producent ma również możliwość dodawania nowej diety. Wówczas przy
-użyciu zapytania GET /producer/meal/all pobierane są dane posiłków.
+użyciu zapytania GET meals/ pobierane są dane posiłków.
 Producent wypełnia dane diety oraz wybiera jakie posiłki składały się
-będą na nową dietę. Po zatwierdzeniu wysyłane jest zapytanie POST
-/producer/diet, które ma na celu dodanie diety do bazy danych. Moduł
+będą na nową dietę. Po zatwierdzeniu wysyłane jest zapytanie POST diets/, 
+które ma na celu dodanie diety do bazy danych. Moduł
 serwera po pozytywnej weryfikacji, zapisuje dietę oraz odsyła odpowiedź
 do producenta.
 
@@ -1019,7 +1001,7 @@ specyfikacji OpenAPI 3.0.0.
 
 ## Bezpieczeństwo
 
-    securitySchemes:
+    securitySchemas:
         ApiKeyAuth:
             type: apiKey
             in: header
@@ -1040,12 +1022,12 @@ specyfikacji OpenAPI 3.0.0.
                 example: "Wesoła"
                 description: Ulica
             buildingNumber:
-                type: integer
-                example: 2
+                type: string
+                example: 2A
                 description: Numer budynku
             apartmentNumber:
-                type: integer
-                example: 23
+                type: string
+                example: 23K
                 description: Numer mieszkania
             postCode:
                 type: string
@@ -1160,6 +1142,13 @@ Diet:
 
 ### Zamówienie
 
+    OrderStatus:
+        description: Zamówienie - status
+        type: string
+        enum: ["Utworzone", "Oczekuje na płatność", "Do realizacji", "Opłacone" "Przygotowane", "Dostarczone", "Zakończone", "Odrzucone"]
+        type: string
+        example: Utworzone
+
     Order:
         description: Zamówienie - klasa
         type: object
@@ -1185,10 +1174,7 @@ Diet:
                 example: 123
                 description: Cena zamówienia
             status:
-                enum: ["Utworzone", "Oczekuje na płatność", "Do realizacji", "Przygotowane", "Dostarczone", "Zakończone", "Odrzucone"]
-                type: string
-                example: Utworzone
-                description: Status zamówienia
+                type: $ref: "#/components/schemas/OrderStatus"
         required:
             - diets
             - deliveryDetails
@@ -1251,7 +1237,7 @@ Complaint:
                 - $ref: "#/components/schemas/Address"
             phoneNumber:
                 type: string
-                example: "213721370"
+                example: "+48213721370"
                 description: Numer telefonu klienta
         required:
             - name
@@ -1303,15 +1289,52 @@ Producer:
         required:
             - currentOrders
 
+### Dane uwierzytelniające
+
+    AuthData:
+        description: Dane uwierzytelniające
+        type: object
+        properties:
+            email:
+                type: string
+                example: "jacek@example.org"
+                description: Adres email
+            lastName:
+                type: string
+                example: "password1234"
+                description: Hasło
+        required:
+            - email
+            - password
+
+
 ## Endpointy API
 
 ### Klient
+	client/login
+        post:
+            description: "Logowanie klienta"
+            requestBody:
+                description: "Dane uwierzytelniające"
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/AuthData"
+            responses:
+                "200":
+                    description: "Powodzenie logowania"
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/securitySchemas/ApiKeyAuth"
+                                description: "Token uwierzytelniający klienta"
+                "400":
+                    description: "Niepowodzenie logowania"
 
-    /client
+	client/register
         post:
             description: "Utworzenie nowego konta klienta"
-            security:
-                ApiKeyAuth: [client]
             requestBody:
                 description: "Dane nowego klienta"
                 required: true
@@ -1321,337 +1344,235 @@ Producer:
                             $ref: "#/components/schemas/Client"
             responses:
                 "201":
-                    description: "Konto zostało stworzone"
+                    description: "Konto zostało utworzone"
                     content:
                         application/json:
                             schema:
-                                $ref: "#/components/schemas/id"
-                                description: "Identyfikator klienta"
+                                $ref: "#/components/securitySchemas/ApiKeyAuth"
+                                description: "Token uwierzytelniający klienta"
                 "400":
-                    description: "Konto nie został stworzone"
-    
-    
-    /client/diet/all
+                    description: "Konto nie został utworzone"
+
+    client/account
         get:
-            description: "Pobranie listy dostępnych diet dla użytkownika"
+            description: "Pobranie danych konta klienta"
             security:
                 ApiKeyAuth: [client]
             responses:
                 "200":
-                    description: "Zwrócono listę dostępnych diet"
+                    description: "Zwrócono dane klienta"
                     content:
                         application/json:
                             schema:
-                                type: "array"
+                            $ref: "#/components/schemas/Client"
+                "400":
+                    description: "Pobranie danych nie powiodło się"
+                "401":
+                    description: "Brak dostępu"
+
+	    put:
+            description: "Edycja danych konta klienta"
+            security:
+                ApiKeyAuth: [client]
+            requestBody:
+                description: "Nowe dane klienta"
+                required: true
+                content:
+                    schema:
+                        $ref: "#/components/schemas/Client"
+            responses:
+                "200":
+                    description: "Zmieniono dane klienta"
+                "400":
+                    description: "Edycja danych nie powiodła się"
+                "401":
+                    description: "Brak dostępu"
+
+
+client/orders
+        get:
+            description: "Pobranie danych zamówień klienta"
+            security:
+                ApiKeyAuth: [client]
+            responses:
+                "200":
+                    description: "Zwrócono dane zamówień klienta"
+                    content:
+                        application/json:
+                            schema:
+                                type: array
                                 items:
-                                    $ref: "#/components/schemas/Diet"
+                                    type: object
+                                    properties:
+                                        id:
+                                            type: integer
+                                        diets:
+                                            type: array
+                                            items: $ref: "#/components/schemas/Diet"
+                                        deliveryDetails:
+                                            type: $ref: "#/components/schemas/DeliveryDetails"
+                                        startDate:
+                                            type: DateTime
+                                        endDate:
+                                            type: DateTime
+                                        price:
+                                            type: integer
+                                        status:
+                                            type: $ref: "#/components/schemas/OrderStatus"
+                                        complaint
+                                            type: $ref: "#/components/schemas/Compliant"
+                                            required: false
                 "400":
-                    description: "Pobranie listy dostępnych diet nie powiodło się"
+                    description: "Pobranie nie powiodło się"
                 "401":
                     description: "Brak dostępu"
-    
-    
-    /client/order
-        post:
-            description: "Utworzenie nowego zamówienia"
+
+	    post:
+            description: "Wysłanie danych zamówienia"
             security:
                 ApiKeyAuth: [client]
             requestBody:
-                description: "Dane nowego zamówienia"
+                description: "Dane zamówienia"
                 required: true
                 content:
                     application/json:
                         schema:
-                            $ref: "#/components/schemas/Order"
+                            type: object
+                            properties:
+                                dietIDs:
+                                    type: array
+                                    items: 
+                                        type: integer
+                                deliveryDetails:
+                                    type: $ref: "#/components/schemas/DeliveryDetails"
+                                startDate:
+                                    type: DateTime
+                                endDate:
+                                    type: DateTime
             responses:
                 "201":
-                    description: "Zamówienie zostało stworzone"
-                    content:
-                        application/json:
-                            schema:
-                                $ref: "#/components/schemas/id"
-                                description: "Identyfikator zamówienia"
+                    description: "Zapisano zamówienie"
                 "400":
-                    description: "Zamówienie nie zostało stworzone"
-    
-    
-    /client/order/payment
+                    description: "Zapisanie nie powiodło się"
+                "401":
+                    description: "Brak dostępu"
+
+
+    client/orders/{orderId}/complain
         post:
-            description: "Potwierdzenie płatności"
-            security:
-                ApiKeyAuth: [client]
-            requestBody:
-                description: "Dane płatności"
-                required: true
-                content:
-                    application/json:
-                        schema:
-                            $ref: "#components/schemas/Payment"
-            responses:
-                "200":
-                    description: "Potwierdzenie opłaty zamówienia"
-                    content:
-                        application/json:
-                            schema:
-                                $ref: "#/components/schemas/id"
-                                description: "Identyfikator zamówienia"
-                "400":
-                    description: "Płatność nie jest zaakceptowana"
-    
-    
-    /client/order/cancel
-        post:
-            description: "Odrzucenie zamówienia"
+            description: "Wysłanie danych reklamacji"
             security:
                 ApiKeyAuth: [client]
             parameters:
-                name: "id"
-                in: "query"
-                description: "Identyfikator zamówienia"
+                in: path
+                name: orderId
                 required: true
                 schema:
-                    $ref: "#/components/schemas/id"
-            responses:
-                "204":
-                    description: "Zamówienie zostało usunięte"
-                "400":
-                    description: "Usunięcie posiłku nie powiodło się"
-                "401":
-                    description: "Brak dostępu"
-                "404":
-                    description: "Posiłek o podanym identyfikatorze nie istnieje"
-    
-    
-    /client/complaint
-        get:
-            description: "Pobranie danych reklamacji"
-            security:
-                ApiKeyAuth: [client]
-            parameters:
-                name: "id"
-                in: "query"
-                description: "Identyfikator reklamacji"
-                required: true
-                schema:
-                    $ref: "#/components/schemas/id"
-            responses:
-                "200":
-                    description: "Zwrócono dane reklamacji"
-                    content:
-                        application/json:
-                            schema:
-                                $ref: "#/components/schemas/Complaint"
-                "400":
-                    description: "Pobranie danych reklamacji nie powiodło się"
-                "404":
-                    description: "Reklamacja o podanym identyfikatorze nie istnieje"
-        post:
-            description: "Utworzenie nowej reklamacji"
-            security:
-                ApiKeyAuth: [client]
+                    type: integer
+                    minimum: 1                   
             requestBody:
-                description: "Dane nowej reklamacji"
+                description: "Dane reklamacji"
                 required: true
                 content:
                     application/json:
                         schema:
-                            $ref: "#/components/schemas/Complaint"
+                            type: object
+                            properties:
+                                complain_description:
+                                    type: string
             responses:
                 "201":
-                    description: "Reklamacja została przyjęta"
-                    content:
-                        application/json:
-                            schema:
-                                $ref: "#/components/schemas/id"
-                                description: "Identyfikator reklamacji"
+                    description: "Zapisano reklamację"
                 "400":
-                    description: "Reklamacja nie została stworzona"
+                    description: "Zapisanie nie powiodło się"
+                "401":
+                    description: "Brak dostępu"
+
+
+    client/orders/{orderId}/pay
+        description: "Opłacenie zamówienia"
+        security:
+            ApiKeyAuth: [client]
+        parameters:
+            in: path
+            name: orderId
+            required: true
+            schema:
+                type: integer
+                minimum: 1               
+        responses:
+            "201":
+                description: "Opłacono zamówienie"
+            "400":
+                description: "Opłacenie zamówienia nie powiodło się"
+            "401":
+                description: "Brak dostępu"
+
+
+
 
 ### Producent
-
-    /producer/meal:
-        get:
-          description: "Pobranie szczegółów posiłku"
-          security:
-            - ApiKeyAuth: [producer]
-          parameters:
-          - name: "id"
-            in: "query"
-            description: "Identyfikator posiłku"
-            required: true
-            schema:
-              $ref: "#/components/schemas/id"
-          responses:
-            "200":
-              description: "Zwrócono szczegóły posiłku"
-              content:
-                application/json:
-                  schema:
-                    $ref: "#/components/schemas/Meal"
-            "400":
-              description: "Pobranie szczegółów posiłku nie powiodło się"
-            "404":
-              description: "Posiłek o podanym identyfikatorze nie istnieje"
+    producer/login
         post:
-          description: "Utworzenie nowego posiłku"
-          security:
-                ApiKeyAuth: [producer]
-          requestBody:
-            description: "Dane nowego posiłku"
-            required: true
-            content:
-              application/json:
-                schema:
-                  $ref: "#/components/schemas/Meal"
-          responses:
-            "201":
-              description: "Posiłek został stworzony"
-              content:
-                application/json:
-                  schema:
-                    $ref: "#/components/schemas/id"
-                  description: "Identyfikator posiłku"
-            "400":
-              description: "Posiłek nie został stworzony"
-        delete:
-          description: "Usunięcie posiłku"
-          security:
-            - ApiKeyAuth: [producer]
-          parameters:
-          - name: "id"
-            in: "query"
-            description: "Identyfikator posiłku"
-            required: true
-            schema:
-              $ref: "#/components/schemas/id"
-          responses:
-            "204":
-              description: "Posiłek został usunięty"
-            "400":
-              description: "Usunięcie posiłku nie powiodło się"
-            "401":
-              description: "Brak dostępu"
-            "404":
-              description: "Posiłek o podanym identyfikatorze nie istnieje"
-    
-    
-    /producer/diet
-        get:
-          description: "Pobranie szczegółów diety"
-          security:
-            - ApiKeyAuth: [producer]
-          parameters:
-          - name: "id"
-            in: "query"
-            description: "Identyfikator diety"
-            required: true
-            schema:
-              $ref: "#/components/schemas/id"
-          responses:
-            "200":
-              description: "Zwrócono szczegóły diety"
-              content:
-                application/json:
-                  schema:
-                    $ref: "#/components/schemas/Diet"
-            "400":
-              description: "Pobranie szczegółów diety nie powiodło się"
-            "404":
-              description: "Dieta o podanym identyfikatorze nie istnieje"
-        post:
-          description: "Utworzenie nowej diety"
-          security:
-            - ApiKeyAuth: [producer]
-          requestBody:
-            description: "Dane nowej diety"
-            required: true
-            content:
-              application/json:
-                schema:
-                  $ref: "#/components/schemas/Diet"
-          responses:
-            "201":
-              description: "Dieta została stworzona"
-              content:
-                application/json:
-                  schema:
-                    $ref: "#/components/schemas/id"
-                  description: "Identyfikator diety"
-            "400":
-              description: "Dieta nie została stworzona"
-        delete:
-          description: "Usunięcie diety"
-          security:
-            - ApiKeyAuth: [producer]
-          parameters:
-          - name: "id"
-            in: "query"
-            description: "Identyfikator diety"
-            required: true
-            schema:
-              $ref: "#/components/schemas/id"
-          responses:
-            "204":
-              description: "Dieta została usunięty"
-            "400":
-              description: "Usunięcie diety nie powiodło się"
-            "401":
-              description: "Brak dostępu"
-            "404":
-              description: "Dieta o podanym identyfikatorze nie istnieje"
-    
-    
-    /producer/order/all
-        get:
-            description: "Pobranie listy niezrealizowanych zamówień"
-            security:
-                ApiKeyAuth: [producer]
+            description: "Logowanie producenta"
+            requestBody:
+                description: "Dane uwierzytelniające"
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/AuthData"
             responses:
                 "200":
-                    description: "Zwrócono listę niezrealizowanych zamówień"
+                    description: "Powodzenie logowania"
                     content:
                         application/json:
                             schema:
-                                type: "array"
-                                items:
-                                    $ref: "#/components/schemas/Order"
+                                $ref: "#/components/securitySchemas/ApiKeyAuth"
+                                description: "Token uwierzytelniający producenta"
                 "400":
-                    description: "Pobranie listy zamówień nie powiodło się"
-                "401":
-                    description: "Brak dostępu"
-    
-    
-    /producer/order/ready
-        post:
-            description: "Przeniesienie zamówienia do dostawy"
-            security:
-                ApiKeyAuth: [producer]
-            parameters:
-                name: "id"
-                in: "query"
-                description: "Identyfikator zamówienia"
-                required: true
-                schema:
-                    $ref: "#/components/schemas/id"
-            responses:
-                "200":
-                    description: "Zamówienie zostało przeniesione do dostawy"
-                "400":
-                    description: "Przeniesienie zamówienia do dostawy nie powiodło się"
-                "401":
-                    description: "Brak dostępu"
-                "404":
-                    description: "Zamówienie o podanym identyfikatorze nie istnieje"
-    
-    
-    /producer/complaint/all
+                    description: "Niepowodzenie logowania"
+
+
+    producer/orders
         get:
-            description: "Pobranie listy reklamacji"
+            description: "Pobieranie danych zamówień"
             security:
                 ApiKeyAuth: [producer]
             responses:
                 "200":
-                    description: "Zwrócono listę reklamacji"
+                    description: "Pobieranie danych zamówień powiodło się"
+                    content:
+                        application/json:
+                            schema:
+                                type: array
+                                items:
+                                    type: object
+                                    properties:
+                                        orderId:
+                                            type: integer
+                                        diets:
+                                            type: array
+                                            items: $ref: "#/components/schemas/Diet"
+                                        deliveryDetails:
+                                            type: $ref: "#/components/schemas/DeliveryDetails"
+                                        startDate:
+                                            type: DateTime
+                                        endDate:
+                                            type: DateTime
+                "400":
+                    description: "Pobieranie nie powiodło się"
+                "401":
+                    description: "Brak dostępu"
+
+    producer/orders/complaints 
+        get:
+            description: "Pobieranie danych złożonych reklamacji"
+            security:
+                ApiKeyAuth: [producer]
+            responses:
+                "200":
+                    description: "Pobieranie danych reklamacji powiodło się"
                     content:
                         application/json:
                             schema:
@@ -1659,98 +1580,371 @@ Producer:
                                 items:
                                     $ref: "#/components/schemas/Complaint"
                 "400":
-                    description: "Pobranie listy reklamacji nie powiodło się"
+                    description: "Pobieranie nie powiodło się"
                 "401":
                     description: "Brak dostępu"
-    
-    
-    /producer/complaint/respond
-        get:
-            description: "Odpowiedź na reklamację"
+
+
+    producer/orders/{orderId}/answer-complaint	
+        post:
+            description: "Wysłanie odpowiedzi do reklamacji"
             security:
                 ApiKeyAuth: [producer]
             parameters:
-                name: "id"
-                in: "query"
-                description: "Identyfikator reklamacji"
+                in: path
+                name: orderId
                 required: true
                 schema:
-                    $ref: "#/components/schemas/id"
+                    type: integer
+                    minimum: 1                   
+            requestBody:
+                description: "Dane odpowiedzi"
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            properties:
+                                compliant_answer:
+                                    type: string
             responses:
-                "200":
-                    description: "Odpowiedź jest zapisana"
+                "201":
+                    description: "Zapisano odpowiedź do reklamacji"
                 "400":
-                    description: "Odpowiedź nie została zapisana"
+                    description: "Zapisanie nie powiodło się"
                 "401":
                     description: "Brak dostępu"
-                "404":
-                    description: "Reklamacja o podanym identyfikatorze nie istnieje"
+
+
+    producer/orders/{orderId}/complete
+        post:
+            description: "Potwierdzenie wykonania zamówienia"
+            security:
+                ApiKeyAuth: [producer]
+            parameters:
+                in: path
+                name: orderId
+                required: true
+                schema:
+                    type: integer
+                    minimum: 1                   
+            responses:
+                "200":
+                    description: "Powodzenie potwierdzenia wykonania zamówienia"
+                "400":
+                    description: "Niepowodzenie potwierdzenia wykoniania zamówienia"
+                "401":
+                    description: "Brak dostępu"
+
 
 ### Dostawca
-
-    /deliverer/delivery
+    deliverer/login
         post:
-            description: "Zamówienie zostało dostarczone"
-            security:
-                ApiKeyAuth: [deliverer]
-            parameters:
-                name: "id"
-                in: "query"
-                description: "Identyfikator zamówienia"
+            description: "Logowanie dostawcy"
+            requestBody:
+                description: "Dane uwierzytelniające"
                 required: true
-                schema:
-                    $ref: "#/components/schemas/id"
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/AuthData"
             responses:
                 "200":
-                    description: "Zamówienie oznaczono jako dostarczone"
-                "400":
-                    description: "Status zamówienia nie został zmieniony"
-                "401":
-                    description: "Brak dostępu"
-                "404":
-                    description: "Zamówienie o podanym identyfikatorze nie istnieje"
-    
-    
-    /deliverer/order/all
-        get:
-            description: "Pobranie listy zamówień do dostawy"
-            security:
-                ApiKeyAuth: [deliverer]
-            responses:
-                "200":
-                    description: "Zwrócono listę zamówień do dostawy"
+                    description: "Powodzenie logowania"
                     content:
                         application/json:
                             schema:
-                                type: "array"
+                                $ref: "#/components/securitySchemas/ApiKeyAuth"
+                                description: "Token uwierzytelniający dostawcy"
+                "400":
+                    description: "Niepowodzenie logowania"
+
+
+    deliverer/orders
+        get:
+            description: "Pobieranie zamówień gotowych do dostarczenia"
+            security:
+                ApiKeyAuth: [deliverer]
+            "200":
+                description: "Powodzenie pobierania danych zamówień gotowych do dostarczenia"
+                content:
+                    application/json:
+                        schema:
+                            type: array
+                            items:
+                                type: object
+                                properties:
+                                    orderId:
+                                        type: integer
+                                    deliveryDetails:
+                                        type: $ref: "#/components/schemas/DeliveryDetails"          
+            "400":
+                description: "Niepowodzenie pobierania"
+            "401":
+                description: "Brak dostępu"
+            
+
+    deliverer/orders/{orderID}/deliver
+        post:
+            description: "Potwierdzenie dostarczenia zamówienia"
+            security:
+                ApiKeyAuth: [deliverer]
+            parameters:
+                in: path
+                name: orderId
+                required: true
+                schema:
+                    type: integer
+                    minimum: 1                
+            responses:
+                "200":
+                    description: "Powodzenie potwierdzenia dostawy"
+                "400":
+                    description: "Niepowodzenie potwierdzenia dostawy"
+                "401":
+                    description: "Brak dostępu"
+
+### Diety
+    diet/
+        get:
+            description: "Pobranie danych diet"
+            security:
+                ApiKeyAuth: [producer, client]
+            responses:
+                "200":
+                    description: "Powodzenie pobrania diet"
+                    content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/Diet"
+                "400":
+                    description: "Niepowodzenie dodania diet"
+                "401":
+                    description: "Brak dostępu"        
+        
+        post:
+            description: "Dodanie nowej diety"
+            security:
+                ApiKeyAuth: [producer]
+            requestBody:
+                description: "Dane diety"
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: array
+                            items:
+                                type: object
+                                properties:
+                                    name:
+                                        type: string
+                                    mealIds:
+                                        type: array
+                                        items: 
+                                            type: integer
+                                    price:
+                                        type: integer
+                                    calories:
+                                        type: integer
+                                    vegan:
+                                        type: boolean
+            responses:
+                "200":
+                    description: "Powodzenie edycji diety"
+                "400":
+                    description: "Niepowodzenie edycji diety"
+                "401":
+                    description: "Brak dostępu"
+
+    diet/{dietId}
+        get:
+            description: "Pobranie danych diety"
+            security:
+                ApiKeyAuth: [producer, client]
+            parameters:
+                in: path
+                name: dietId
+                required: true
+                schema:
+                    type: integer
+                    minimum: 1
+            responses:
+                "200":
+                    description: "Powodzenie pobrania diety"
+                    content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/Diet"
+                "400":
+                    description: "Niepowodzenie dodania diety"
+                "401":
+                    description: "Brak dostępu"
+
+        put: 
+            description: "Edycja podanej diety"
+            security:
+                ApiKeyAuth: [producer]
+            parameters:
+                in: path
+                name: dietId
+                required: true
+                schema:
+                    type: integer
+                    minimum: 1                
+            requestBody:
+                description: "Dane diety"
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: array
+                            items:
+                                type: object
+                                properties:
+                                    name:
+                                        type: string
+                                    mealIds:
+                                        type: array
+                                        items: 
+                                            type: integer
+                                    price:
+                                        type: integer
+                                    calories:
+                                        type: integer
+                                    vegan:
+                                        type: boolean
+            responses:
+                "200":
+                    description: "Powodzenie edycji diety"
+                "400":
+                    description: "Niepowodzenie edycji diety"
+                "401":
+                    description: "Brak dostępu"
+
+        delete:
+            description: "Usunięcie podanej diety"
+            security:
+                ApiKeyAuth: [producer]
+            parameters:
+                in: path
+                name: dietId
+                required: true
+                schema:
+                    type: integer
+                    minimum: 1                
+            responses:
+                "200":
+                    description: "Powodzenie usunięcia diety"
+                "400":
+                    description: "Niepowodzenie usunięcia diety"
+                "401":
+                    description: "Brak dostępu"
+
+### Posiłki
+    meal/
+        get:
+            description: "Pobranie danych posiłków"
+            security:
+                ApiKeyAuth: [producer, client]
+            responses:
+                "200":
+                    description: "Powodzenie pobrania danych posiłków"
+                    content:
+                    application/json:
+                        schema:
+                            type: array
                                 items:
-                                    $ref: "#/components/schemas/Order"
+                                    $ref: "#/components/schemas/Meal"
                 "400":
-                    description: "Pobranie listy zamówień nie powiodło się"
+                    description: "Niepowodzenie pobrania danych posiłków"
                 "401":
                     description: "Brak dostępu"
-    
-    
-    /deliverer/order/client
-        get:
-            description: "Pobranie danych klienta"
+
+        post:
+            description: "Dodanie nowego posiłku"
             security:
-                ApiKeyAuth: [deliverer]
+                ApiKeyAuth: [producer]
+            requestBody:
+                description: "Dane posiłku"
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/Meal"
+            responses:
+                "201":
+                    description: "Powodzenie dodania posiłku"
+                "400":
+                    description: "Niepowodzenie dodania posiłku"
+                "401":
+                    description: "Brak dostępu"
+
+
+    meal/{mealId}
+        get:
+            description: "Pobranie danych posiłku"
+            security:
+                ApiKeyAuth: [producer, client]
             parameters:
-                name: "id"
-                in: "query"
-                description: "Identyfikator zamówienia"
+                in: path
+                name: mealId
                 required: true
                 schema:
-                    $ref: "#/components/schemas/id"
+                    type: integer
+                    minimum: 1
             responses:
                 "200":
-                    description: "Zwrócono dane klienta"
+                    description: "Powodzenie pobrania posiłku"
                     content:
-                        application/json:
-                            schema:
-                                $ref: "#/components/schemas/Client"
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/Meal"
                 "400":
-                    description: "Pobranie danych klienta nie powiodło się"
-                "404":
-                    description: "Zamówienie o podanym identyfikatorze nie istnieje"
+                    description: "Niepowodzenie dodania posiłku"
+                "401":
+                    description: "Brak dostępu"
+
+        put:
+            description: "Edycja podanego posiłku"
+            security:
+                ApiKeyAuth: [producer]
+            parameters:
+                in: path
+                name: mealId
+                required: true
+                schema:
+                    type: integer
+                    minimum: 1            
+            requestBody:
+                description: "Dane posiłku"
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/Meal"
+            responses:
+                "200":
+                    description: "Powodzenie edycji posiłku"
+                "400":
+                    description: "Niepowodzenie edycji posiłku"
+                "401":
+                    description: "Brak dostępu"
+
+        delete:
+            description: "Usunięcie podanego posiłku"
+            security:
+                ApiKeyAuth: [producer]
+            parameters:
+                in: path
+                name: mealId
+                required: true
+                schema:
+                    type: integer
+                    minimum: 1                
+            responses:
+                "200":
+                    description: "Powodzenie usunięcia posiłku"
+                "400":
+                    description: "Niepowodzenie usunięcia posiłku"
+                "401":
+                    description: "Brak dostępu"
