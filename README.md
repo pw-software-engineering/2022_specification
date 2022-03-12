@@ -529,21 +529,21 @@ wygląda następujaco:
 Obiekt zamówienia (Order) ma pole Status, które może przyjmować jedną z
 wartości:
 
-  - Utworzone
+  - Utworzone ("Created")
 
-  - Oczekuje na płatność
+  - Oczekuje na płatność ("WaitingForPayment")
 
-  - Opłacone
+  - Opłacone ("Paid")
 
-  - Do realizacji
+  - Do realizacji ("ToRealized")
 
-  - Przygotowane
+  - Przygotowane ("Prepared")
 
-  - Dostarczone
+  - Dostarczone ("Delivered")
 
-  - Zakonczone
+  - Zakonczone ("Finished")
 
-  - Odrzucone
+  - Odrzucone ("Canceled")
 
 Klient tworzy zamówienie poprzez wybranie interesującej go diety i
 zaznaczenie, na jaki okres chciałby ją zamówić. Zamówienie przechodzi do
@@ -611,9 +611,9 @@ Na koniec zajmiemy się rozważeniem diagramu stanów reklamacji.
 Obiekt reklamacji ma pole Status, które może przyjmować jedną z dwóch
 wartości:
 
-  - Złożona
+  - Złożona ("Opened")
 
-  - Zakończona
+  - Zakończona ("Closed")
 
 Klient tworzy reklamację, ustawia jej status na **Złożona** i dodaje ją
 do bazy danych. Wówczas wyświetla się ona zarówno klientowi jak i
@@ -1145,9 +1145,16 @@ Diet:
     OrderStatus:
         description: Zamówienie - status
         type: string
-        enum: ["Utworzone", "Oczekuje na płatność", "Do realizacji", "Opłacone" "Przygotowane", "Dostarczone", "Zakończone", "Odrzucone"]
+        enum: ["Created", 
+               "WaitingForPayment", 
+               "ToRealized", 
+               "Paid",
+               "Prepared",
+               "Delivered", 
+               "Finished", 
+               "Canceled"]
         type: string
-        example: Utworzone
+        example: Paid
 
     Order:
         description: Zamówienie - klasa
@@ -1202,9 +1209,9 @@ Complaint:
             example: "2018-02-28T16:41:41.090Z"
             description: Data złożenia reklamacji
         status:
-            enum: ["Utworzona", "Zakończona"]
+            enum: ["Opened", "Closed"]
             type: string
-            example: Utworzona
+            example: Opened
             description: Status reklamacji
     required:
         - order
@@ -1389,11 +1396,70 @@ Producer:
                     description: "Brak dostępu"
 
 
-client/orders
+    client/orders
         get:
             description: "Pobranie danych zamówień klienta"
             security:
                 ApiKeyAuth: [client]
+            parameters:
+                - in: query
+                name: offset
+                schema:
+                    type: integer
+                description: Liczba elementów do pominięcia podczas zapytania
+
+                - in: query
+                name: limit
+                schema:
+                    type: integer
+                description: Liczba elementów do pobrania podczas zapytania
+
+                - in: query
+                name: sort
+                schema:
+                    type: string
+                    enum: ["startDate(asc)", "startDate(desc)",
+                           "endDate(asc)", "endDate(desc)",
+                           "orderId(asc)", "orderId(desc)",
+                           "price(asc)", "price(desc)"]
+                description: Sposób sortowania danych
+
+                - in: query
+                name: startDate
+                schema:
+                    type: DateTime
+                description: Pobranie zamówień rozpoczynających się danego dnia
+
+                - in: query
+                name: endDate
+                schema:
+                    type: DateTime
+                description: Pobranie zamówień kończących się danego dnia
+
+                - in: query
+                name: price
+                schema:
+                    type: Integer
+                description: Pobranie diet o podanej cenie
+
+                - in: query
+                name: price_lt
+                schema:
+                    type: Integer
+                description: Pobranie diet o cenie niższej niż podana
+
+                - in: query
+                name: price_ht
+                schema:
+                    type: Integer
+                description: Pobranie diet o cenie wyższej niż podana
+
+                - in: query
+                name: status
+                schema:
+                    type: $ref: "#/components/schemas/OrderStatus"
+                description: Pobranie zamówień o podanym statusie
+
             responses:
                 "200":
                     description: "Zwrócono dane zamówień klienta"
@@ -1494,7 +1560,7 @@ client/orders
         security:
             ApiKeyAuth: [client]
         parameters:
-            in: path
+            - in: path
             name: orderId
             required: true
             schema:
@@ -1507,9 +1573,6 @@ client/orders
                 description: "Opłacenie zamówienia nie powiodło się"
             "401":
                 description: "Brak dostępu"
-
-
-
 
 ### Producent
     producer/login
@@ -1539,6 +1602,40 @@ client/orders
             description: "Pobieranie danych zamówień"
             security:
                 ApiKeyAuth: [producer]
+            parameters:
+                - in: query
+                name: offset
+                schema:
+                    type: integer
+                description: Liczba elementów do pominięcia podczas zapytania
+
+                - in: query
+                name: limit
+                schema:
+                    type: integer
+                description: Liczba elementów do pobrania podczas zapytania
+
+                - in: query
+                name: sort
+                schema:
+                    type: string
+                    enum: ["startDate(asc)", "startDate(desc)",
+                           "endDate(asc)", "endDate(desc)",
+                           "orderId(asc)", "orderId(desc)"]
+                description: Sposób sortowania danych
+
+                - in: query
+                name: startDate
+                schema:
+                    type: DateTime
+                description: Pobranie zamówień rozpoczynających się danego dnia
+
+                - in: query
+                name: endDate
+                schema:
+                    type: DateTime
+                description: Pobranie zamówień kończących się danego dnia
+
             responses:
                 "200":
                     description: "Pobieranie danych zamówień powiodło się"
@@ -1591,7 +1688,7 @@ client/orders
             security:
                 ApiKeyAuth: [producer]
             parameters:
-                in: path
+                - in: path
                 name: orderId
                 required: true
                 schema:
@@ -1622,7 +1719,7 @@ client/orders
             security:
                 ApiKeyAuth: [producer]
             parameters:
-                in: path
+                - in: path
                 name: orderId
                 required: true
                 schema:
@@ -1690,7 +1787,7 @@ client/orders
             security:
                 ApiKeyAuth: [deliverer]
             parameters:
-                in: path
+                - in: path
                 name: orderId
                 required: true
                 schema:
@@ -1710,6 +1807,82 @@ client/orders
             description: "Pobranie danych diet"
             security:
                 ApiKeyAuth: [producer, client]
+            parameters:
+                - in: query
+                name: offset
+                schema:
+                    type: integer
+                description: Liczba elementów do pominięcia podczas zapytania
+
+                - in: query
+                name: limit
+                schema:
+                    type: integer
+                description: Liczba elementów do pobrania podczas zapytania
+
+                - in: query
+                name: sort
+                schema:
+                    type: string
+                    enum: ["title(asc)", "title(desc)",
+                           "calories(asc)", "calories(desc)",
+                           "price(asc)", "price(desc)"]
+                description: Sposób sortowania danych
+
+                - in: query
+                name: name
+                schema:
+                    type: string
+                description: Pobranie diet o podanej nazwie
+
+                - in: query
+                name: name_with
+                schema:
+                    type: string
+                description: Pobranie diet zwierających podaną frazę
+
+                - in: query
+                name: vegan
+                schema:
+                    type: Boolean
+                description: Pobranie diet wegańskich
+
+                - in: query
+                name: calories
+                schema:
+                    type: Integer
+                description: Pobranie diet o podanej kaloryce
+
+                - in: query
+                name: calories_lt
+                schema:
+                    type: Integer
+                description: Pobranie diet o kaloryce niższej niż podana
+
+                - in: query
+                name: calories_ht
+                schema:
+                    type: Integer
+                description: Pobranie diet o kaloryce wyższej niż podana
+
+                - in: query
+                name: price
+                schema:
+                    type: Integer
+                description: Pobranie diet o podanej cenie
+
+                - in: query
+                name: price_lt
+                schema:
+                    type: Integer
+                description: Pobranie diet o cenie niższej niż podana
+
+                - in: query
+                name: price_ht
+                schema:
+                    type: Integer
+                description: Pobranie diet o cenie wyższej niż podana
+
             responses:
                 "200":
                     description: "Powodzenie pobrania diet"
@@ -1762,7 +1935,7 @@ client/orders
             security:
                 ApiKeyAuth: [producer, client]
             parameters:
-                in: path
+                - in: path
                 name: dietId
                 required: true
                 schema:
@@ -1785,7 +1958,7 @@ client/orders
             security:
                 ApiKeyAuth: [producer]
             parameters:
-                in: path
+                - in: path
                 name: dietId
                 required: true
                 schema:
@@ -1826,7 +1999,7 @@ client/orders
             security:
                 ApiKeyAuth: [producer]
             parameters:
-                in: path
+                - in: path
                 name: dietId
                 required: true
                 schema:
@@ -1846,6 +2019,63 @@ client/orders
             description: "Pobranie danych posiłków"
             security:
                 ApiKeyAuth: [producer, client]
+            parameters:
+                - in: query
+                name: offset
+                schema:
+                    type: integer
+                description: Liczba elementów do pominięcia podczas zapytania
+
+                - in: query
+                name: limit
+                schema:
+                    type: integer
+                description: Liczba elementów do pobrania podczas zapytania
+                                
+                - in: query
+                name: sort
+                schema:
+                    type: string
+                    enum: ["title(asc)", "title(desc)",
+                           "calories(asc)", "calories(desc)"]
+                description: Sposób sortowania danych
+
+                - in: query
+                name: name
+                schema:
+                    type: string
+                description: Pobranie posiłków o podanej nazwie
+
+                - in: query
+                name: name_with
+                schema:
+                    type: string
+                description: Pobranie posiłków zwierających podaną frazę
+
+                - in: query
+                name: vegan
+                schema:
+                    type: Boolean
+                description: Pobranie posiłków wegańskich
+
+                - in: query
+                name: calories
+                schema:
+                    type: Integer
+                description: Pobranie posiłków o podanej kaloryce
+
+                - in: query
+                name: calories_lt
+                schema:
+                    type: Integer
+                description: Pobranie posiłków o kaloryce niższej niż podana
+
+                - in: query
+                name: calories_ht
+                schema:
+                    type: Integer
+                description: Pobranie posiłków o kaloryce wyższej niż podana
+
             responses:
                 "200":
                     description: "Powodzenie pobrania danych posiłków"
@@ -1886,7 +2116,7 @@ client/orders
             security:
                 ApiKeyAuth: [producer, client]
             parameters:
-                in: path
+                - in: path
                 name: mealId
                 required: true
                 schema:
@@ -1909,7 +2139,7 @@ client/orders
             security:
                 ApiKeyAuth: [producer]
             parameters:
-                in: path
+                - in: path
                 name: mealId
                 required: true
                 schema:
@@ -1935,7 +2165,7 @@ client/orders
             security:
                 ApiKeyAuth: [producer]
             parameters:
-                in: path
+                - in: path
                 name: mealId
                 required: true
                 schema:
