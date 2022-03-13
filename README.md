@@ -313,6 +313,7 @@ Jest to klasa zawierająca dane posiłku, o polach:
 
 | **Nazwa**      | **Typ**     | **Opis**                                             |
 | :------------- | :---------- | :--------------------------------------------------- |
+| mealId         | String      | Id posiłku                                           |
 | Name           | String      | Nazwa posiłku.                                       |
 | IngredientList | String\[ \] | Lista składników.                                    |
 | AllergenList   | String\[ \] | Lista alergenów.                                     |
@@ -332,6 +333,7 @@ Jest to klasa zawierająca dane diety, o polach:
 
 | Nazwa       | Typ       | Opis                                               |
 | :---------- | :-------- | :------------------------------------------------- |
+| dietId      | String    | Id diety.                                          |
 | Title       | String    | Tytuł diety.                                       |
 | Description | String    | Opis diety.                                        |
 | Calories    | Integer   | Wersja kaloryczności danej diety.                  |
@@ -348,12 +350,14 @@ Jest to klasa zawierająca dane zamówienia, o polach:
 
 | Nazwa           | Typ             | Opis                      |
 | :-------------- | :-------------- | :------------------------ |
+| orderId         | String          | Id zamówienia.            |
 | Diets           | Diet\[ \]       | Wybrane diety.            |
 | DeliveryDetails | DeliveryDetails | Szczegóły dostawy.        |
 | StartDate       | DateTime        | Data początku zamówienia. |
 | EndDate         | DateTime        | Data końca zamówienia.    |
 | Price           | Decimal         | Cena zamówienia.          |
 | Status          | Enum            | Status zamówienia.        |
+| Compliant       | Compliant?      | Reklamacja do zamówienia  |
 
 </div>
 
@@ -365,7 +369,7 @@ Jest to klasa zawierająca dane reklamacji, o polach:
 
 | Nazwa       | Typ      | Opis                                    |
 | :---------- | :------- | :-------------------------------------- |
-| Order       | Order    | Zamówienie, którego dotyczy reklamacja. |
+| compliantId | String   | Id reklamacji.                          |
 | Description | String   | Opis reklamacji.                        |
 | Date        | DateTime | Data złożenia reklamacji.               |
 | Status      | Enum     | Status reklamacji.                      |
@@ -1072,6 +1076,10 @@ Meal:
     description: Posiłek - klasa
     type: object
     properties:
+        mealId:
+            type: string
+            example: "1"
+            description: ID posiłku
         name: 
             type: string
             example: "Xyz"
@@ -1095,6 +1103,7 @@ Meal:
             example: true
             description: Flaga informująca, czy posiłek nadaje się dla wegan
     required:
+        - mealId
         - name
         - ingredientList
         - allergenList
@@ -1110,6 +1119,10 @@ Diet:
     description: Dieta - klasa
     type: object
     properties:
+            dietId:
+            type: string
+            example: "1"
+            description: ID diety
         title:
             type: string
             example: "Xyz"
@@ -1132,6 +1145,7 @@ Diet:
             example: true
             description: Flaga informująca, czy dieta nadaje się dla wegan
     required:
+        - dietId
         - title
         - description
         - calories
@@ -1160,6 +1174,10 @@ Diet:
         description: Zamówienie - klasa
         type: object
         properties:
+            orderId:
+                type: string
+                example: "1"
+                description: ID zamówienia
             diets:
                 type: array
                 description: Lista wybranych diet
@@ -1183,6 +1201,7 @@ Diet:
             status:
                 type: $ref: "#/components/schemas/OrderStatus"
         required:
+            - orderId
             - diets
             - deliveryDetails
             - startDate
@@ -1197,6 +1216,10 @@ Complaint:
     description: Reklamacja - struktura
     type: object
     properties:
+        complaintId:
+            type: string
+            example: "1"
+            description: ID reklamacji
         order:
             allOf:
             - $ref: "#/components/schemas/Order"
@@ -1214,6 +1237,7 @@ Complaint:
             example: Opened
             description: Status reklamacji
     required:
+        - comlaintId
         - order
         - description
         - date
@@ -1239,6 +1263,10 @@ Complaint:
                 type: string
                 example: "jacek@example.org"
                 description: Adres email klienta
+            password:
+                type: string
+                example: "password1234"
+                description: Hasło
             address:
                 allOf:
                 - $ref: "#/components/schemas/Address"
@@ -1306,7 +1334,7 @@ Producer:
                 type: string
                 example: "jacek@example.org"
                 description: Adres email
-            lastName:
+            password:
                 type: string
                 example: "password1234"
                 description: Hasło
@@ -1508,7 +1536,7 @@ Producer:
                                 dietIDs:
                                     type: array
                                     items: 
-                                        type: integer
+                                        type: string
                                 deliveryDetails:
                                     type: $ref: "#/components/schemas/DeliveryDetails"
                                 startDate:
@@ -1553,6 +1581,8 @@ Producer:
                     description: "Zapisanie nie powiodło się"
                 "401":
                     description: "Brak dostępu"
+                "404":
+                    description: "Podane zamówienie nie istnieje"
 
 
     client/orders/{orderId}/pay
@@ -1573,6 +1603,8 @@ Producer:
                 description: "Opłacenie zamówienia nie powiodło się"
             "401":
                 description: "Brak dostępu"
+            "404":
+                description: "Podane zamówienie nie istnieje"
 
 ### Producent
     producer/login
@@ -1711,7 +1743,8 @@ Producer:
                     description: "Zapisanie nie powiodło się"
                 "401":
                     description: "Brak dostępu"
-
+                "404":
+                    description: "Podane zamówienie nie istnieje"
 
     producer/orders/{orderId}/complete
         post:
@@ -1732,7 +1765,8 @@ Producer:
                     description: "Niepowodzenie potwierdzenia wykoniania zamówienia"
                 "401":
                     description: "Brak dostępu"
-
+                "404":
+                    description: "Podane zamówienie nie istnieje"
 
 ### Dostawca
     deliverer/login
@@ -1800,9 +1834,11 @@ Producer:
                     description: "Niepowodzenie potwierdzenia dostawy"
                 "401":
                     description: "Brak dostępu"
+                "404":
+                    description: "Podane zamówienie nie istnieje"
 
 ### Diety
-    diet/
+    diets/
         get:
             description: "Pobranie danych diet"
             security:
@@ -1891,7 +1927,7 @@ Producer:
                         schema:
                             $ref: "#/components/schemas/Diet"
                 "400":
-                    description: "Niepowodzenie dodania diet"
+                    description: "Niepowodzenie pobrania diet"
                 "401":
                     description: "Brak dostępu"        
         
@@ -1914,22 +1950,18 @@ Producer:
                                     mealIds:
                                         type: array
                                         items: 
-                                            type: integer
+                                            type: string
                                     price:
                                         type: integer
-                                    calories:
-                                        type: integer
-                                    vegan:
-                                        type: boolean
             responses:
-                "200":
-                    description: "Powodzenie edycji diety"
+                "201":
+                    description: "Powodzenie dodania diety"
                 "400":
-                    description: "Niepowodzenie edycji diety"
+                    description: "Niepowodzenie dodania diety"
                 "401":
                     description: "Brak dostępu"
 
-    diet/{dietId}
+    diets/{dietId}
         get:
             description: "Pobranie danych diety"
             security:
@@ -1939,7 +1971,7 @@ Producer:
                 name: dietId
                 required: true
                 schema:
-                    type: integer
+                    type: string
                     minimum: 1
             responses:
                 "200":
@@ -1947,11 +1979,15 @@ Producer:
                     content:
                     application/json:
                         schema:
-                            $ref: "#/components/schemas/Diet"
+                            type: array
+                                items:
+                                    $ref: "#/components/schemas/Diet"
                 "400":
                     description: "Niepowodzenie dodania diety"
                 "401":
                     description: "Brak dostępu"
+                "404":
+                    description: "Podana dieta nie istnieje"
 
         put: 
             description: "Edycja podanej diety"
@@ -1962,7 +1998,7 @@ Producer:
                 name: dietId
                 required: true
                 schema:
-                    type: integer
+                    type: string
                     minimum: 1                
             requestBody:
                 description: "Dane diety"
@@ -1970,22 +2006,16 @@ Producer:
                 content:
                     application/json:
                         schema:
-                            type: array
-                            items:
-                                type: object
-                                properties:
-                                    name:
+                            type: object
+                            properties:
+                                name:
+                                    type: string
+                                mealIds:
+                                    type: array
+                                    items: 
                                         type: string
-                                    mealIds:
-                                        type: array
-                                        items: 
-                                            type: integer
-                                    price:
-                                        type: integer
-                                    calories:
-                                        type: integer
-                                    vegan:
-                                        type: boolean
+                                price:
+                                    type: integer
             responses:
                 "200":
                     description: "Powodzenie edycji diety"
@@ -1993,6 +2023,8 @@ Producer:
                     description: "Niepowodzenie edycji diety"
                 "401":
                     description: "Brak dostępu"
+                "404":
+                    description: "Podana dieta nie istnieje"
 
         delete:
             description: "Usunięcie podanej diety"
@@ -2003,7 +2035,7 @@ Producer:
                 name: dietId
                 required: true
                 schema:
-                    type: integer
+                    type: string
                     minimum: 1                
             responses:
                 "200":
@@ -2012,9 +2044,11 @@ Producer:
                     description: "Niepowodzenie usunięcia diety"
                 "401":
                     description: "Brak dostępu"
+                "404":
+                    description: "Podana dieta nie istnieje"
 
 ### Posiłki
-    meal/
+    meals/
         get:
             description: "Pobranie danych posiłków"
             security:
@@ -2110,7 +2144,7 @@ Producer:
                     description: "Brak dostępu"
 
 
-    meal/{mealId}
+    meals/{mealId}
         get:
             description: "Pobranie danych posiłku"
             security:
@@ -2120,7 +2154,7 @@ Producer:
                 name: mealId
                 required: true
                 schema:
-                    type: integer
+                    type: string
                     minimum: 1
             responses:
                 "200":
@@ -2133,6 +2167,8 @@ Producer:
                     description: "Niepowodzenie dodania posiłku"
                 "401":
                     description: "Brak dostępu"
+                "404":
+                    description: "Podany posiłek nie istnieje"
 
         put:
             description: "Edycja podanego posiłku"
@@ -2143,7 +2179,7 @@ Producer:
                 name: mealId
                 required: true
                 schema:
-                    type: integer
+                    type: string
                     minimum: 1            
             requestBody:
                 description: "Dane posiłku"
@@ -2159,6 +2195,8 @@ Producer:
                     description: "Niepowodzenie edycji posiłku"
                 "401":
                     description: "Brak dostępu"
+                "404":
+                    description: "Podany posiłek nie istnieje"
 
         delete:
             description: "Usunięcie podanego posiłku"
@@ -2169,7 +2207,7 @@ Producer:
                 name: mealId
                 required: true
                 schema:
-                    type: integer
+                    type: string
                     minimum: 1                
             responses:
                 "200":
@@ -2178,3 +2216,5 @@ Producer:
                     description: "Niepowodzenie usunięcia posiłku"
                 "401":
                     description: "Brak dostępu"
+                "404":
+                    description: "Podany posiłek nie istnieje"
