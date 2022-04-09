@@ -2131,9 +2131,18 @@ Producer:
                     content:
                     application/json:
                         schema:
-                            type: array
-                                items:
-                                    $ref: "#/components/schemas/Meal"
+			    type: array
+			    items:
+			        type: object
+			        properties:
+				    id:
+				        type: string
+				    name:
+				        type: string
+				    calories:
+				        type: integer
+				    vegan:
+				        type: bool
                 "400":
                     description: "Niepowodzenie pobrania danych posiłków"
                 "401":
@@ -2150,17 +2159,23 @@ Producer:
                     application/json:
                         schema:
 			    type: array
-                                items:
-                                    type: object
-         			    properties:
-				    	id:
-				    	    type: string
-				        name:
+			    items:
+			        type: object
+			        properties:
+				    name:
+				        type: string
+				    allergenList:
+                                        type: array
+                                        items: 
                                             type: string
-					calories:
-                                            type: integer
-					vegan:
-					    type: bool
+				    ingredientList:
+                                        type: array
+                                        items: 
+                                            type: string
+				    calories:
+				        type: integer
+				    vegan:
+				        type: bool
             responses:
                 "201":
                     description: "Powodzenie dodania posiłku"
