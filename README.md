@@ -1119,11 +1119,11 @@ Diet:
     description: Dieta - klasa
     type: object
     properties:
-            dietId:
+        dietId:
             type: string
             example: "1"
             description: ID diety
-        title:
+        name:
             type: string
             example: "Xyz"
             description: Tytuł diety
@@ -1131,26 +1131,26 @@ Diet:
             type: string
             example: "Xyz"
             description: Opis diety
-        calories:
-            type: integer
-            example: 1234
-            description: Wartość energetyczna diety
         meals:
             type: array
             description: Lista posiłków, z których składa się dana dieta
             items: 
                 $ref: "#/components/schemas/Meal"
+	price:
+	    type: integer
+	    example: "100"
+	    description: Cena diety
         vegan:
             type: bool
             example: true
             description: Flaga informująca, czy dieta nadaje się dla wegan
     required:
         - dietId
-        - title
+        - name
         - description
-        - calories
         - meals
         - vegan
+	- price
         
 ```
 
@@ -1227,6 +1227,10 @@ Complaint:
             type: string
             example: "Xyz"
             description: Opis reklamacji
+	answer:
+	    type: string
+	    example: "Xyz"
+	    description: "Odpowiedz producenta"
         date:
             type: DateTime
             example: "2018-02-28T16:41:41.090Z"
@@ -1925,7 +1929,20 @@ Producer:
                     content:
                     application/json:
                         schema:
-                            $ref: "#/components/schemas/Diet"
+			    type: array
+                                items:
+                                    type: object
+         			    properties:
+				    	id:
+				    	    type: string
+				        name:
+                                            type: string
+                                        price:
+                                            type: integer
+					calories:
+                                            type: integer
+					vegan:
+					    type: bool
                 "400":
                     description: "Niepowodzenie pobrania diet"
                 "401":
@@ -1977,11 +1994,9 @@ Producer:
                 "200":
                     description: "Powodzenie pobrania diety"
                     content:
-                    application/json:
-                        schema:
-                            type: array
-                                items:
-                                    $ref: "#/components/schemas/Diet"
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/Diet"
                 "400":
                     description: "Niepowodzenie dodania diety"
                 "401":
@@ -2112,7 +2127,7 @@ Producer:
 
             responses:
                 "200":
-                    description: "Powodzenie pobrania danych posiłków"
+                    description: "Powodzenie pobrania danych posiłku"
                     content:
                     application/json:
                         schema:
@@ -2134,7 +2149,18 @@ Producer:
                 content:
                     application/json:
                         schema:
-                            $ref: "#/components/schemas/Meal"
+			    type: array
+                                items:
+                                    type: object
+         			    properties:
+				    	id:
+				    	    type: string
+				        name:
+                                            type: string
+					calories:
+                                            type: integer
+					vegan:
+					    type: bool
             responses:
                 "201":
                     description: "Powodzenie dodania posiłku"
